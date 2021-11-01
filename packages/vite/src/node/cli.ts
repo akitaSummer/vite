@@ -7,7 +7,7 @@ import { createLogger, LogLevel } from './logger'
 import { resolveConfig } from '.'
 import { preview } from './preview'
 
-const cli = cac('vite')
+const cli = cac('vite') // cli工具
 
 // global options
 interface GlobalCLIOptions {
@@ -64,7 +64,7 @@ cli
   .option('-m, --mode <mode>', `[string] set env mode`)
 
 // dev
-cli
+cli // 执行 vite 的时候执行的命令
   .command('[root]') // default command
   .alias('serve') // the command is called 'serve' in Vite's API
   .alias('dev') // alias to align with the script name
@@ -79,6 +79,7 @@ cli
     `[boolean] force the optimizer to ignore the cache and re-bundle`
   )
   .action(async (root: string, options: ServerOptions & GlobalCLIOptions) => {
+    // 执行内容
     // output structure is preserved even after bundling so require()
     // is ok here
     const { createServer } = await import('./server')

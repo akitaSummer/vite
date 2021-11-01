@@ -334,19 +334,20 @@ export async function createServer(
   const root = config.root
   const serverConfig = config.server
   const httpsOptions = await resolveHttpsConfig(config)
-  let { middlewareMode } = serverConfig
+  let { middlewareMode } = serverConfig // 是否是ssr
   if (middlewareMode === true) {
     middlewareMode = 'ssr'
   }
 
-  const middlewares = connect() as Connect.Server
+  const middlewares = connect() as Connect.Server // node的中间件系统，创建中间件
   const httpServer = middlewareMode
     ? null
-    : await resolveHttpServer(serverConfig, middlewares, httpsOptions)
-  const ws = createWebSocketServer(httpServer, config, httpsOptions)
+    : await resolveHttpServer(serverConfig, middlewares, httpsOptions) // ssrServer
+  const ws = createWebSocketServer(httpServer, config, httpsOptions) // wsServer
 
   const { ignored = [], ...watchOptions } = serverConfig.watch || {}
   const watcher = chokidar.watch(path.resolve(root), {
+    // 监听文件变化
     ignored: [
       '**/node_modules/**',
       '**/.git/**',
@@ -360,13 +361,14 @@ export async function createServer(
 
   const plugins = config.plugins
   const container = await createPluginContainer(config, watcher)
-  const moduleGraph = new ModuleGraph(container)
-  const closeHttpServer = createServerCloseFn(httpServer)
+  const moduleGraph = new ModuleGraph(container) // 模块图谱，记录模块间关系
+  const closeHttpServer = createServerCloseFn(httpServer) // 创建http结束时调用的函数
 
   // eslint-disable-next-line prefer-const
   let exitProcess: () => void
 
   const server: ViteDevServer = {
+    // server
     config,
     middlewares,
     get app() {
@@ -438,6 +440,7 @@ export async function createServer(
   server.transformIndexHtml = createDevHtmlTransformFn(server)
 
   exitProcess = async () => {
+    // 进程退出时调用
     try {
       await server.close()
     } finally {
@@ -445,13 +448,14 @@ export async function createServer(
     }
   }
 
-  process.once('SIGTERM', exitProcess)
+  process.once('SIGTERM', exitProcess) // 监听退出信号
 
   if (!middlewareMode && process.env.CI !== 'true') {
     process.stdin.on('end', exitProcess)
   }
 
   watcher.on('change', async (file) => {
+    // 文件变化时调用
     file = normalizePath(file)
     // invalidate module graph cache on file change
     moduleGraph.onFileChange(file)
@@ -527,25 +531,27 @@ export async function createServer(
   // this applies before the transform middleware so that these files are served
   // as-is without transforms.
   if (config.publicDir) {
+    // Public 目录地址
     middlewares.use(servePublicMiddleware(config.publicDir))
   }
 
   // main transform middleware
-  middlewares.use(transformMiddleware(server))
+  middlewares.use(transformMiddleware(server)) // 编译的中间件
 
   // serve static files
-  middlewares.use(serveRawFsMiddleware(server))
-  middlewares.use(serveStaticMiddleware(root, server))
+  middlewares.use(serveRawFsMiddleware(server)) // 静态处理的中间件
+  middlewares.use(serveStaticMiddleware(root, server)) // 静态处理的中间件
 
   // spa fallback
   if (!middlewareMode || middlewareMode === 'html') {
+    // spa中404请求映射到index.html
     middlewares.use(spaFallbackMiddleware(root))
   }
 
   // run post config hooks
   // This is applied before the html middleware so that user middleware can
   // serve custom content instead of index.html.
-  postHooks.forEach((fn) => fn && fn())
+  postHooks.forEach((fn) => fn && fn()) // configserver 插件如果返回一个函数，则在vite中间件执行结束后执行
 
   if (!middlewareMode || middlewareMode === 'html') {
     // transform index.html
@@ -559,13 +565,13 @@ export async function createServer(
   }
 
   // error handler
-  middlewares.use(errorMiddleware(server, !!middlewareMode))
+  middlewares.use(errorMiddleware(server, !!middlewareMode)) // 处理错误中间件
 
   const runOptimize = async () => {
     if (config.cacheDir) {
       server._isRunningOptimizer = true
       try {
-        server._optimizeDepsMetadata = await optimizeDeps(config)
+        server._optimizeDepsMetadata = await optimizeDeps(config) // 优先将node_modules中commonjs模块转化为ESM
       } finally {
         server._isRunningOptimizer = false
       }
@@ -578,9 +584,10 @@ export async function createServer(
     // overwrite listen to run optimizer before server start
     const listen = httpServer.listen.bind(httpServer)
     httpServer.listen = (async (port: number, ...args: any[]) => {
+      // listen成功后执行
       if (!isOptimized) {
         try {
-          await container.buildStart({})
+          await container.buildStart({}) // buidStart
           await runOptimize()
           isOptimized = true
         } catch (e) {
