@@ -215,7 +215,7 @@ export type ResolvedConfig = Readonly<
     root: string
     base: string
     publicDir: string
-    command: 'build' | 'serve'
+    command: 'build' | 'serve' // 判断环境
     mode: string
     isProduction: boolean
     env: Record<string, any>
@@ -240,8 +240,8 @@ export type ResolveFn = (
 ) => Promise<string | undefined>
 
 export async function resolveConfig(
-  inlineConfig: InlineConfig,
-  command: 'build' | 'serve',
+  inlineConfig: InlineConfig, // inlineConfig是通过命令行读取的配置
+  command: 'build' | 'serve', // 判断环境
   defaultMode = 'development'
 ): Promise<ResolvedConfig> {
   let config = inlineConfig
@@ -256,6 +256,7 @@ export async function resolveConfig(
   }
 
   const configEnv = {
+    // 存储命令和mode
     mode,
     command
   }
@@ -263,15 +264,16 @@ export async function resolveConfig(
   let { configFile } = config
   if (configFile !== false) {
     const loadResult = await loadConfigFromFile(
+      // 解析config文件
       configEnv,
       configFile,
       config.root,
       config.logLevel
     )
     if (loadResult) {
-      config = mergeConfig(loadResult.config, config)
+      config = mergeConfig(loadResult.config, config) // 合并配置
       configFile = loadResult.path
-      configFileDependencies = loadResult.dependencies
+      configFileDependencies = loadResult.dependencies // 需要监听的文件
     }
   }
 
@@ -287,6 +289,7 @@ export async function resolveConfig(
 
   // resolve plugins
   const rawUserPlugins = (config.plugins || []).flat().filter((p) => {
+    // plugin过滤
     if (!p) {
       return false
     } else if (!p.apply) {
@@ -298,11 +301,11 @@ export async function resolveConfig(
     }
   }) as Plugin[]
   const [prePlugins, normalPlugins, postPlugins] =
-    sortUserPlugins(rawUserPlugins)
-
+    sortUserPlugins(rawUserPlugins) // 排序组合plugins
   // run config hooks
   const userPlugins = [...prePlugins, ...normalPlugins, ...postPlugins]
   for (const p of userPlugins) {
+    // 执行每个config的钩子
     if (p.config) {
       const res = await p.config(config, configEnv)
       if (res) {
@@ -313,6 +316,7 @@ export async function resolveConfig(
 
   // resolve root
   const resolvedRoot = normalizePath(
+    // 根路径
     config.root ? path.resolve(config.root) : process.cwd()
   )
 
@@ -323,6 +327,7 @@ export async function resolveConfig(
 
   // resolve alias with internal client alias
   const resolvedAlias = mergeAlias(
+    // alias合并
     // @ts-ignore because @rollup/plugin-alias' type doesn't allow function
     // replacement, but its implementation does work with function values.
     clientAlias,
@@ -336,7 +341,7 @@ export async function resolveConfig(
   }
 
   // load .env files
-  const envDir = config.envDir
+  const envDir = config.envDir // 加载env文件
     ? normalizePath(path.resolve(resolvedRoot, config.envDir))
     : resolvedRoot
   const userEnv =
@@ -353,26 +358,28 @@ export async function resolveConfig(
   }
 
   // resolve public base url
-  const BASE_URL = resolveBaseUrl(config.base, command === 'build', logger)
-  const resolvedBuildOptions = resolveBuildOptions(config.build)
+  const BASE_URL = resolveBaseUrl(config.base, command === 'build', logger) // 项目base url
+  const resolvedBuildOptions = resolveBuildOptions(config.build) // 读取buildoptions
 
   // resolve cache directory
   const pkgPath = lookupFile(
+    // package.json路径
     resolvedRoot,
     [`package.json`],
     true /* pathOnly */
   )
-  const cacheDir = config.cacheDir
+  const cacheDir = config.cacheDir // cachedir： node_modules/.vite
     ? path.resolve(resolvedRoot, config.cacheDir)
     : pkgPath && path.join(path.dirname(pkgPath), `node_modules/.vite`)
 
-  const assetsFilter = config.assetsInclude
+  const assetsFilter = config.assetsInclude // 静态资源文件配置
     ? createFilter(config.assetsInclude)
     : () => false
 
   // create an internal resolver to be used in special scenarios, e.g.
   // optimizer & handling css @imports
   const createResolver: ResolvedConfig['createResolver'] = (options) => {
+    // 创建resolveid的函数
     let aliasContainer: PluginContainer | undefined
     let resolverContainer: PluginContainer | undefined
     return async (id, importer, aliasOnly, ssr) => {
@@ -419,6 +426,7 @@ export async function resolveConfig(
       : ''
 
   const resolved: ResolvedConfig = {
+    // 读取的config和vite自带的config结合
     ...config,
     configFile: configFile ? normalizePath(configFile) : undefined,
     configFileDependencies,
@@ -457,6 +465,7 @@ export async function resolveConfig(
   }
 
   ;(resolved.plugins as Plugin[]) = await resolvePlugins(
+    // 返回新组件plugin的数组
     resolved,
     prePlugins,
     normalPlugins,
@@ -464,7 +473,7 @@ export async function resolveConfig(
   )
 
   // call configResolved hooks
-  await Promise.all(userPlugins.map((p) => p.configResolved?.(resolved)))
+  await Promise.all(userPlugins.map((p) => p.configResolved?.(resolved))) // 执行configResolved回调
 
   if (process.env.DEBUG) {
     debug(`using resolved config: %O`, {
@@ -745,9 +754,9 @@ export function sortUserPlugins(
 
 export async function loadConfigFromFile(
   configEnv: ConfigEnv,
-  configFile?: string,
-  configRoot: string = process.cwd(),
-  logLevel?: LogLevel
+  configFile?: string, // config文件
+  configRoot: string = process.cwd(), // 项目根目录
+  logLevel?: LogLevel // 日志
 ): Promise<{
   path: string
   config: UserConfig
@@ -763,8 +772,9 @@ export async function loadConfigFromFile(
 
   // check package.json for type: "module" and set `isMjs` to true
   try {
-    const pkg = lookupFile(configRoot, ['package.json'])
+    const pkg = lookupFile(configRoot, ['package.json']) // 寻找package.json
     if (pkg && JSON.parse(pkg).type === 'module') {
+      // 判断是否是esm模块
       isMjs = true
     }
   } catch (e) {}
@@ -772,7 +782,7 @@ export async function loadConfigFromFile(
   if (configFile) {
     // explicit config path is always resolved from cwd
     resolvedPath = path.resolve(configFile)
-    isTS = configFile.endsWith('.ts')
+    isTS = configFile.endsWith('.ts') // 判断是否是ts
 
     if (configFile.endsWith('.mjs')) {
       isMjs = true
@@ -780,7 +790,7 @@ export async function loadConfigFromFile(
   } else {
     // implicit config file loaded from inline root (if present)
     // otherwise from cwd
-    const jsconfigFile = path.resolve(configRoot, 'vite.config.js')
+    const jsconfigFile = path.resolve(configRoot, 'vite.config.js') // 寻找根目录的vite
     if (fs.existsSync(jsconfigFile)) {
       resolvedPath = jsconfigFile
     }
@@ -811,16 +821,17 @@ export async function loadConfigFromFile(
     let userConfig: UserConfigExport | undefined
 
     if (isMjs) {
-      const fileUrl = require('url').pathToFileURL(resolvedPath)
+      // 如果是esm
+      const fileUrl = require('url').pathToFileURL(resolvedPath) // 读取路径
       if (isTS) {
         // before we can register loaders without requiring users to run node
         // with --experimental-loader themselves, we have to do a hack here:
         // bundle the config file w/ ts transforms first, write it to disk,
         // load it with native Node ESM, then delete the file.
-        const bundled = await bundleConfigFile(resolvedPath, true)
+        const bundled = await bundleConfigFile(resolvedPath, true) // 打包
         dependencies = bundled.dependencies
-        fs.writeFileSync(resolvedPath + '.js', bundled.code)
-        userConfig = (await dynamicImport(`${fileUrl}.js?t=${Date.now()}`))
+        fs.writeFileSync(resolvedPath + '.js', bundled.code) // 写入js文件
+        userConfig = (await dynamicImport(`${fileUrl}.js?t=${Date.now()}`)) // eval import
           .default
         fs.unlinkSync(resolvedPath + '.js')
         debug(`TS + native esm config loaded in ${getTime()}`, fileUrl)
@@ -858,13 +869,14 @@ export async function loadConfigFromFile(
     }
 
     if (!userConfig) {
+      // 非esm文件
       // 2. if we reach here, the file is ts or using es import syntax, or
       // the user has type: "module" in their package.json (#917)
       // transpile es import syntax to require syntax using rollup.
       // lazy require rollup (it's actually in dependencies)
       const bundled = await bundleConfigFile(resolvedPath)
       dependencies = bundled.dependencies
-      userConfig = await loadConfigFromBundledFile(resolvedPath, bundled.code)
+      userConfig = await loadConfigFromBundledFile(resolvedPath, bundled.code) // 加载，类commonjs
       debug(`bundled config file loaded in ${getTime()}`)
     }
 
@@ -950,15 +962,16 @@ interface NodeModuleWithCompile extends NodeModule {
   _compile(code: string, filename: string): any
 }
 
-async function loadConfigFromBundledFile(
+async function loadConfigFromBundledFile( // 不生成js文件，直接打包进文件系统
   fileName: string,
   bundledCode: string
 ): Promise<UserConfig> {
   const extension = path.extname(fileName)
   const defaultLoader = require.extensions[extension]!
   require.extensions[extension] = (module: NodeModule, filename: string) => {
+    // 覆盖默认扩展名的loader
     if (filename === fileName) {
-      ;(module as NodeModuleWithCompile)._compile(bundledCode, filename)
+      ;(module as NodeModuleWithCompile)._compile(bundledCode, filename) // 获取模块内容
     } else {
       defaultLoader(module, filename)
     }

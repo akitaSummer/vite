@@ -28,6 +28,7 @@ export async function resolvePlugins(
     : { pre: [], post: [] }
 
   return [
+    // 结合用户和vite自带的plugin组合成数组
     isBuild ? null : preAliasPlugin(),
     aliasPlugin({ entries: config.resolve.alias }),
     ...prePlugins,

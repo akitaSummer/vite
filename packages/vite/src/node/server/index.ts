@@ -330,7 +330,7 @@ export interface ViteDevServer {
 export async function createServer(
   inlineConfig: InlineConfig = {}
 ): Promise<ViteDevServer> {
-  const config = await resolveConfig(inlineConfig, 'serve', 'development')
+  const config = await resolveConfig(inlineConfig, 'serve', 'development') // 读取配置文件，组合 inlineConfig是通过命令行读取的配置
   const root = config.root
   const serverConfig = config.server
   const httpsOptions = await resolveHttpsConfig(config)
