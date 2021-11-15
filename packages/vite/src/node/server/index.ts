@@ -417,7 +417,7 @@ export async function createServer(
       await Promise.all([
         watcher.close(),
         ws.close(),
-        container.close(),
+        container.close(), // 执行close hooks
         closeHttpServer()
       ])
     },

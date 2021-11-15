@@ -39,7 +39,7 @@ const isDebug = !!process.env.DEBUG
 
 const knownIgnoreList = new Set(['/', '/favicon.ico'])
 
-export function transformMiddleware(
+export function transformMiddleware( // 处理js文件
   server: ViteDevServer
 ): Connect.NextHandleFunction {
   const {
@@ -48,7 +48,7 @@ export function transformMiddleware(
   } = server
 
   // determine the url prefix of files inside cache directory
-  let cacheDirPrefix: string | undefined
+  let cacheDirPrefix: string | undefined // .vite路径
   if (cacheDir) {
     const cacheDirRelative = normalizePath(path.relative(root, cacheDir))
     if (cacheDirRelative.startsWith('../')) {
@@ -69,7 +69,7 @@ export function transformMiddleware(
     }
 
     if (
-      server._pendingReload &&
+      server._pendingReload && // 如果客户端重启则等待后发送408
       // always allow vite client requests so that it can trigger page reload
       !req.url?.startsWith(CLIENT_PUBLIC_PATH) &&
       !req.url?.includes('vite/dist/client')
@@ -101,7 +101,7 @@ export function transformMiddleware(
     const withoutQuery = cleanUrl(url)
 
     try {
-      const isSourceMap = withoutQuery.endsWith('.map')
+      const isSourceMap = withoutQuery.endsWith('.map') // 是否是sorcemap请求
       // since we generate source map references, handle those requests here
       if (isSourceMap) {
         const originalUrl = url.replace(/\.map($|\?)/, '$1')
@@ -139,7 +139,7 @@ export function transformMiddleware(
         isHTMLProxy(url)
       ) {
         // strip ?import
-        url = removeImportQuery(url)
+        url = removeImportQuery(url) // 处理?import
         // Strip valid id prefix. This is prepended to resolved Ids that are
         // not valid browser import specifiers by the importAnalysis plugin.
         url = unwrapId(url)
@@ -155,11 +155,11 @@ export function transformMiddleware(
         }
 
         // check if we can return 304 early
-        const ifNoneMatch = req.headers['if-none-match']
+        const ifNoneMatch = req.headers['if-none-match'] // 是否有缓存
         if (
           ifNoneMatch &&
           (await moduleGraph.getModuleByUrl(url))?.transformResult?.etag ===
-            ifNoneMatch
+            ifNoneMatch // id不变则返回304
         ) {
           isDebug && debugCache(`[304] ${prettifyUrl(url, root)}`)
           res.statusCode = 304

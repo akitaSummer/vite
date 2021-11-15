@@ -128,7 +128,7 @@ export let parser = acorn.Parser.extend(
 
 export async function createPluginContainer(
   { plugins, logger, root, build: { rollupOptions } }: ResolvedConfig,
-  watcher?: FSWatcher
+  watcher?: FSWatcher // 文件监听实例
 ): Promise<PluginContainer> {
   const isDebug = process.env.DEBUG
 
@@ -147,7 +147,7 @@ export async function createPluginContainer(
   const watchFiles = new Set<string>()
 
   // get rollup version
-  const rollupPkgPath = resolve(require.resolve('rollup'), '../../package.json')
+  const rollupPkgPath = resolve(require.resolve('rollup'), '../../package.json') // 读取目录下得package.json
   const minimalContext: MinimalPluginContext = {
     meta: {
       rollupVersion: JSON.parse(fs.readFileSync(rollupPkgPath, 'utf-8'))
@@ -171,6 +171,7 @@ export async function createPluginContainer(
   // active plugin in that pipeline can be tracked in a concurrency-safe manner.
   // using a class to make creating new contexts more efficient
   class Context implements PluginContext {
+    // 实现rollup的context
     meta = minimalContext.meta
     ssr = false
     _activePlugin: Plugin | null
@@ -184,6 +185,7 @@ export async function createPluginContainer(
     }
 
     parse(code: string, opts: any = {}) {
+      // 编译代码入口
       return parser.parse(code, {
         sourceType: 'module',
         ecmaVersion: 'latest',
@@ -334,6 +336,7 @@ export async function createPluginContainer(
   }
 
   class TransformContext extends Context {
+    // 请求进来转义代码
     filename: string
     originalCode: string
     originalSourcemap: SourceMap | null = null
@@ -395,6 +398,7 @@ export async function createPluginContainer(
   let closed = false
 
   const container: PluginContainer = {
+    // 承担vite钩子如何执行
     options: await (async () => {
       let options = rollupOptions
       for (const plugin of plugins) {
@@ -420,6 +424,7 @@ export async function createPluginContainer(
       await Promise.all(
         plugins.map((plugin) => {
           if (plugin.buildStart) {
+            // 如果插件中存在buildstart则执行
             return plugin.buildStart.call(
               new Context(plugin) as any,
               container.options as NormalizedInputOptions
@@ -430,31 +435,33 @@ export async function createPluginContainer(
     },
 
     async resolveId(rawId, importer = join(root, 'index.html'), options) {
+      //
       const skip = options?.skip
       const ssr = options?.ssr
       const ctx = new Context()
       ctx.ssr = !!ssr
-      ctx._resolveSkips = skip
+      ctx._resolveSkips = skip // 存储需要跳过的插件
       const resolveStart = isDebug ? performance.now() : 0
 
       let id: string | null = null
       const partial: Partial<PartialResolvedId> = {}
       for (const plugin of plugins) {
-        if (!plugin.resolveId) continue
-        if (skip?.has(plugin)) continue
+        if (!plugin.resolveId) continue // 不存在跳过
+        if (skip?.has(plugin)) continue // 在跳过数组中
 
         ctx._activePlugin = plugin
 
         const pluginResolveStart = isDebug ? performance.now() : 0
         const result = await plugin.resolveId.call(
           ctx as any,
-          rawId,
-          importer,
+          rawId, //id
+          importer, // 哪个模块引用了
           { ssr }
         )
         if (!result) continue
 
         if (typeof result === 'string') {
+          // 一旦返回值有值，则会跳出插件执行
           id = result
         } else {
           id = result.id
@@ -473,9 +480,10 @@ export async function createPluginContainer(
       }
 
       if (isDebug && rawId !== id && !rawId.startsWith(FS_PREFIX)) {
-        const key = rawId + id
+        const key = rawId + id // 更新id
         // avoid spamming
         if (!seenResolves[key]) {
+          // 存储id
           seenResolves[key] = true
           debugResolve(
             `${timeFrom(resolveStart)} ${chalk.cyan(rawId)} -> ${chalk.dim(id)}`
@@ -507,6 +515,7 @@ export async function createPluginContainer(
     },
 
     async transform(code, id, options) {
+      // 与resolve不同，每个插件都会执行
       const inMap = options?.inMap
       const ssr = options?.ssr
       const ctx = new TransformContext(id, code, inMap as SourceMap)

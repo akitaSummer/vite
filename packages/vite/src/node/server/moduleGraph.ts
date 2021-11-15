@@ -46,10 +46,10 @@ function invalidateSSRModule(mod: ModuleNode, seen: Set<ModuleNode>) {
   mod.importers.forEach((importer) => invalidateSSRModule(importer, seen))
 }
 export class ModuleGraph {
-  urlToModuleMap = new Map<string, ModuleNode>()
-  idToModuleMap = new Map<string, ModuleNode>()
+  urlToModuleMap = new Map<string, ModuleNode>() // 每个模块在客户端真正引用的url
+  idToModuleMap = new Map<string, ModuleNode>() // resolveid 与 模块对应的关系
   // a single file may corresponds to multiple modules with different queries
-  fileToModulesMap = new Map<string, Set<ModuleNode>>()
+  fileToModulesMap = new Map<string, Set<ModuleNode>>() // 文件名和模块对应的关系
   safeModulesPath = new Set<string>()
   container: PluginContainer
 
@@ -99,15 +99,16 @@ export class ModuleGraph {
    * returned as a Set.
    */
   async updateModuleInfo(
-    mod: ModuleNode,
-    importedModules: Set<string | ModuleNode>,
-    acceptedModules: Set<string | ModuleNode>,
+    // 更新模块间的依赖关系
+    mod: ModuleNode, // 模块
+    importedModules: Set<string | ModuleNode>, // 模块引用的其他模块
+    acceptedModules: Set<string | ModuleNode>, // 被哪几个模块引用
     isSelfAccepting: boolean
   ): Promise<Set<ModuleNode> | undefined> {
     mod.isSelfAccepting = isSelfAccepting
-    const prevImports = mod.importedModules
-    const nextImports = (mod.importedModules = new Set())
-    let noLongerImported: Set<ModuleNode> | undefined
+    const prevImports = mod.importedModules // 之前引用的模块
+    const nextImports = (mod.importedModules = new Set()) // 之后引用的模块
+    let noLongerImported: Set<ModuleNode> | undefined // 不再引用的模块
     // update import graph
     for (const imported of importedModules) {
       const dep =
@@ -119,6 +120,7 @@ export class ModuleGraph {
     }
     // remove the importer from deps that were imported but no longer are.
     prevImports.forEach((dep) => {
+      // 去除不再引用的模块
       if (!nextImports.has(dep)) {
         dep.importers.delete(mod)
         if (!dep.importers.size) {
@@ -140,6 +142,7 @@ export class ModuleGraph {
   }
 
   async ensureEntryFromUrl(rawUrl: string): Promise<ModuleNode> {
+    // 存储模块信息
     const [url, resolvedId] = await this.resolveUrl(rawUrl)
     let mod = this.urlToModuleMap.get(url)
     if (!mod) {

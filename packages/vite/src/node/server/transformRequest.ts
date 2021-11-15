@@ -70,11 +70,11 @@ async function doTransform(
   const prettyUrl = isDebug ? prettifyUrl(url, root) : ''
   const ssr = !!options.ssr
 
-  const module = await server.moduleGraph.getModuleByUrl(url)
+  const module = await server.moduleGraph.getModuleByUrl(url) // 获取module
 
   // check if we have a fresh cache
   const cached =
-    module && (ssr ? module.ssrTransformResult : module.transformResult)
+    module && (ssr ? module.ssrTransformResult : module.transformResult) // 读取cache
   if (cached) {
     // TODO: check if the module is "partially invalidated" - i.e. an import
     // down the chain has been fully invalidated, but this current module's
@@ -87,7 +87,7 @@ async function doTransform(
   }
 
   // resolve
-  const id = (await pluginContainer.resolveId(url))?.id || url
+  const id = (await pluginContainer.resolveId(url))?.id || url // 获取路径
   const file = cleanUrl(id)
 
   let code: string | null = null
@@ -95,7 +95,7 @@ async function doTransform(
 
   // load
   const loadStart = isDebug ? performance.now() : 0
-  const loadResult = await pluginContainer.load(id, { ssr })
+  const loadResult = await pluginContainer.load(id, { ssr }) // 获取代码
   if (loadResult == null) {
     // if this is an html request and there is no load result, skip ahead to
     // SPA fallback.
@@ -153,11 +153,12 @@ async function doTransform(
 
   // ensure module in graph after successful load
   const mod = await moduleGraph.ensureEntryFromUrl(url)
-  ensureWatchedFile(watcher, mod.file, root)
+  ensureWatchedFile(watcher, mod.file, root) // 判断是否被监听
 
   // transform
   const transformStart = isDebug ? performance.now() : 0
   const transformResult = await pluginContainer.transform(code, id, {
+    // 转换transform
     inMap: map,
     ssr
   })
@@ -177,6 +178,7 @@ async function doTransform(
   }
 
   if (map && mod.file) {
+    // sourcemap注入
     map = (typeof map === 'string' ? JSON.parse(map) : map) as SourceMap
     if (map.mappings && !map.sourcesContent) {
       await injectSourcesContent(map, mod.file, logger)
