@@ -461,7 +461,7 @@ export async function createServer(
     moduleGraph.onFileChange(file)
     if (serverConfig.hmr !== false) {
       try {
-        await handleHMRUpdate(file, server)
+        await handleHMRUpdate(file, server) // HMR处理
       } catch (err) {
         ws.send({
           type: 'error',
@@ -569,6 +569,7 @@ export async function createServer(
 
   const runOptimize = async () => {
     if (config.cacheDir) {
+      // .vite
       server._isRunningOptimizer = true
       try {
         server._optimizeDepsMetadata = await optimizeDeps(config) // 优先将node_modules中commonjs模块转化为ESM

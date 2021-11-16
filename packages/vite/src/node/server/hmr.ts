@@ -68,6 +68,7 @@ export async function handleHMRUpdate(
 
   // (dev only) the client itself cannot be hot updated.
   if (file.startsWith(normalizedClientDir)) {
+    // client改变则全局更新
     ws.send({
       type: 'full-reload',
       path: '*'
@@ -75,21 +76,21 @@ export async function handleHMRUpdate(
     return
   }
 
-  const mods = moduleGraph.getModulesByFile(file)
+  const mods = moduleGraph.getModulesByFile(file) // 读取所有mods
 
   // check if any plugin wants to perform custom HMR handling
   const timestamp = Date.now()
   const hmrContext: HmrContext = {
-    file,
-    timestamp,
-    modules: mods ? [...mods] : [],
-    read: () => readModifiedFile(file),
+    file, // 文件
+    timestamp, // 时间
+    modules: mods ? [...mods] : [], // 所有模块
+    read: () => readModifiedFile(file), // 读取所有文件
     server
   }
 
   for (const plugin of config.plugins) {
     if (plugin.handleHotUpdate) {
-      const filteredModules = await plugin.handleHotUpdate(hmrContext)
+      const filteredModules = await plugin.handleHotUpdate(hmrContext) // 调用hooks
       if (filteredModules) {
         hmrContext.modules = filteredModules
         break
@@ -100,6 +101,7 @@ export async function handleHMRUpdate(
   if (!hmrContext.modules.length) {
     // html file cannot be hot updated
     if (file.endsWith('.html')) {
+      // html请求则刷新
       config.logger.info(chalk.green(`page reload `) + chalk.dim(shortFile), {
         clear: true,
         timestamp: true
@@ -117,7 +119,7 @@ export async function handleHMRUpdate(
     return
   }
 
-  updateModules(shortFile, hmrContext.modules, timestamp, server)
+  updateModules(shortFile, hmrContext.modules, timestamp, server) // 更新模块
 }
 
 function updateModules(

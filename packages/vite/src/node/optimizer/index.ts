@@ -122,8 +122,8 @@ export async function optimizeDeps(
     return null
   }
 
-  const dataPath = path.join(cacheDir, '_metadata.json')
-  const mainHash = getDepHash(root, config)
+  const dataPath = path.join(cacheDir, '_metadata.json') // 如果跑过则会存在
+  const mainHash = getDepHash(root, config) // 通过package.json获得hash
   const data: DepOptimizationMetadata = {
     hash: mainHash,
     browserHash: mainHash,
